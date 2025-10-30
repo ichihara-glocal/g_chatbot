@@ -1,49 +1,111 @@
+# app.py
 import streamlit as st
 from st_components.sidebar_filters import sidebar_filters
 from st_components.chat_ui import chat_ui
 from es_client import get_es_client
-from retrieval import search_documents, rank_by_embedding
+from retrieval import build_search_query, search_documents, rank_by_embedding
 from generation import generate_answer
 from utils import load_jichitai, load_category
+import datetime
 
-def main():
-    st.set_page_config(page_title="G-Finder 対話型検索", layout="wide")
-    st.sidebar.title("G-Finder 検索条件")
-    filter_params = sidebar_filters()
-    if "history" not in st.session_state:
-        st.session_state["history"] = []
+# ==========================================================
+# ================ Streamlit 基本設定 =======================
+# ==========================================================
 
-    if filter_params:
-        st.session_state["filters"] = filter_params
-        st.session_state["history"] = []  # 絞り込み変更で履歴クリア
+st.set_page_config(page_title="G-Finder 対話型AI検索", layout="wide")
+st.title("質問・応答チャット")
 
-    user_input = chat_ui(st.session_state)
+# ==========================================================
+# ================ 初期状態管理 =============================
+# ==========================================================
 
-    if user_input:
-        st.session_state["history"].append({"role": "user", "content": user_input})
-        es_client = get_es_client()
-        indices = st.secrets["es"]["indices"]
+if "history" not in st.session_state:
+    st.session_state["history"] = []
 
-        docs = search_documents(
-            es_client, indices,
-            keyword=st.session_state["filters"]["keyword"],
-            start_year=st.session_state["filters"]["start_year"],
-            end_year=st.session_state["filters"]["end_year"],
-            jichitai=st.session_state["filters"]["jichitai"],
-            category1=st.session_state["filters"]["category1"],
-            category2=st.session_state["filters"]["category2"],
-            top_n=10000
+if "filters" not in st.session_state:
+    st.session_state["filters"] = {}
+
+# ==========================================================
+# ================ Sidebar：絞り込み条件 ====================
+# ==========================================================
+
+filters = sidebar_filters()
+if filters:
+    # フィルタ変更時は履歴をリセット
+    st.session_state["filters"] = filters
+    st.session_state["history"] = []
+
+# ==========================================================
+# ================ チャットUI部 =============================
+# ==========================================================
+
+user_input = chat_ui(st.session_state)
+
+# ==========================================================
+# ================ 質問送信時の処理 =========================
+# ==========================================================
+
+if user_input:
+    # 履歴追加
+    st.session_state["history"].append({"role": "user", "content": user_input})
+
+    # --- ESクライアント初期化 ---
+    es_client = get_es_client()
+    indices = st.secrets["es"]["indices"]
+    gemini_api_key = st.secrets["gemini"]["api_key"]
+
+    # --- 検索クエリ構築 ---
+    filters = st.session_state.get("filters", {})
+    query = build_search_query(filters)
+
+    # --- Elasticsearch検索 ---
+    st.info("🔍 Elasticsearchから関連ドキュメントを検索中...")
+    docs = search_documents(es_client, indices, query, limit=10000)
+
+    if not docs:
+        st.warning("該当するドキュメントが見つかりませんでした。条件を見直してください。")
+    else:
+        # --- Gemini Embedding による類似度ランキング ---
+        st.info("✨ Gemini Embeddingによる関連度分析中...")
+        ranked_docs = rank_by_embedding(
+            user_input,
+            docs,
+            api_key=gemini_api_key,
+            embedding_model="gemini-embedding-001",
+            top_k=100
         )
-        ranked_docs = rank_by_embedding(user_input, docs, top_k=100)
-        answer = generate_answer(user_input, ranked_docs, st.secrets["gemini"]["api_key"])
+
+        # --- Gemini 2.0 Flash による回答生成 ---
+        st.info("🤖 Gemini 2.0 Flash で回答を生成中...")
+        answer = generate_answer(
+            question=user_input,
+            docs=ranked_docs,
+            api_key=gemini_api_key,
+            model="gemini-2.0-flash",
+            max_output_tokens=800
+        )
+
+        # --- 履歴に追加して表示 ---
         st.session_state["history"].append({"role": "ai", "content": answer})
 
-    # 表示
-    for chat in st.session_state["history"]:
-        if chat["role"] == "user":
-            st.markdown(f"**あなた：** {chat['content']}")
-        else:
-            st.markdown(f"**AI：** {chat['content']}")
+# ==========================================================
+# ================ チャット履歴表示 =========================
+# ==========================================================
 
-if __name__ == "__main__":
-    main()
+for chat in st.session_state["history"]:
+    if chat["role"] == "user":
+        st.markdown(f"**あなた：** {chat['content']}")
+    else:
+        st.markdown(f"**AI：** {chat['content']}")
+
+# ==========================================================
+# ================ 注意書き ================================
+# ==========================================================
+
+st.markdown("""
+---
+**注意事項**
+- 検索対象はG-Finderに格納された公開文書に基づきます。
+- AI回答は参考情報であり、最終判断は原文をご確認ください。
+- 一度に扱う文書数が多い場合、処理に時間がかかることがあります。
+""")
