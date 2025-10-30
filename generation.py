@@ -12,7 +12,10 @@ def generate_answer(
     # プロンプト構築
     context = ""
     for doc in docs:
-        context += f"資料名: {doc['title']}\nURL: {doc['url']}\n内容要約: {doc.get('summary', '')}\n---\n"
+        title = doc.get("title", "（タイトル不明）")
+        url = doc.get("source_url") or doc.get("url") or "（URLなし）"
+        summary = doc.get("summary", "")
+        context += f"資料名: {title}\nURL: {url}\n内容要約: {summary}\n---\n"
     prompt = f"""以下の資料を参照して、ユーザーの質問に日本語で回答してください。
 
 {context}

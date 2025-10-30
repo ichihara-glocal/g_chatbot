@@ -68,25 +68,29 @@ if user_input:
         # --- Gemini Embedding による類似度ランキング ---
         st.info("✨ Gemini Embeddingによる関連度分析中...")
         ranked_docs = rank_by_embedding(
-            user_input,
-            docs,
+            question=user_input,
+            docs=docs,
             api_key=gemini_api_key,
-            embedding_model="gemini-embedding-001",
+            embedding_model="models/text-embedding-004",  # 安定版
             top_k=100
         )
 
-        # --- Gemini 2.0 Flash による回答生成 ---
-        st.info("🤖 Gemini 2.0 Flash で回答を生成中...")
-        answer = generate_answer(
-            question=user_input,
-            docs=ranked_docs,
-            api_key=gemini_api_key,
-            model="gemini-2.0-flash",
-            max_output_tokens=800
-        )
-
-        # --- 履歴に追加して表示 ---
-        st.session_state["history"].append({"role": "ai", "content": answer})
+        if not ranked_docs:
+            st.warning("関連ドキュメントの類似度分析に失敗しました。")
+        else:
+            # --- Gemini 2.0 Flash による回答生成 ---
+            st.info("🤖 Gemini 2.0 Flash で回答を生成中...")
+            try:
+                answer = generate_answer(
+                    question=user_input,
+                    docs=ranked_docs,
+                    api_key=gemini_api_key,
+                    model="gemini-2.0-flash",
+                    max_output_tokens=800
+                )
+                st.session_state["history"].append({"role": "ai", "content": answer})
+            except Exception as e:
+                st.error(f"Gemini回答生成中にエラーが発生しました: {e}")
 
 # ==========================================================
 # ================ チャット履歴表示 =========================
@@ -94,9 +98,9 @@ if user_input:
 
 for chat in st.session_state["history"]:
     if chat["role"] == "user":
-        st.markdown(f"**あなた：** {chat['content']}")
+        st.markdown(f"**あなた：** {chat['content']}**")
     else:
-        st.markdown(f"**AI：** {chat['content']}")
+        st.markdown(f"**AI：** {chat['content']}**")
 
 # ==========================================================
 # ================ 注意書き ================================
@@ -105,7 +109,8 @@ for chat in st.session_state["history"]:
 st.markdown("""
 ---
 **注意事項**
-- 検索対象はG-Finderに格納された公開文書に基づきます。
-- AI回答は参考情報であり、最終判断は原文をご確認ください。
+- 検索対象は G-Finder に格納された公開文書に基づきます。
+- AI回答は参考情報であり、最終判断は必ず原文をご確認ください。
 - 一度に扱う文書数が多い場合、処理に時間がかかることがあります。
+- 通信環境や外部APIの制限により、まれに処理が中断することがあります。
 """)

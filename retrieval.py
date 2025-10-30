@@ -13,30 +13,30 @@ import requests
 def embed_text_gemini(
     texts: List[str],
     api_key: str,
-    embedding_model: str = "gemini-embedding-001"
+    embedding_model: str = "models/text-embedding-004"
 ) -> np.ndarray:
     """
     Gemini API を使ってテキスト埋め込みを生成する関数。
-    モデル「gemini-embedding-001」をデフォルトとしています。
+    モデル「models/text-embedding-004」をデフォルトとしています。
     """
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{embedding_model}:embedContent"
+    url = f"https://generativelanguage.googleapis.com/v1beta/{embedding_model}:embedContent"
     headers = {
         "x-goog-api-key": api_key,
         "Content-Type": "application/json"
     }
 
-    payload = {
-        "model": embedding_model,
-        "contents": [{"text": t} for t in texts]
-    }
-
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-        # レスポンス形式："embeddings": [{"embedding": [...]}, ...]
-        embeddings = [item["embedding"] for item in data["embeddings"]]
-        return np.array(embeddings)
+        vectors = []
+        for text in texts:
+            payload = {
+                "model": embedding_model,
+                "content": {"parts": [{"text": text}]}
+            }
+            resp = requests.post(url, headers=headers, json=payload, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            vectors.append(data["embedding"]["values"])
+        return np.array(vectors)
     except Exception as e:
         st.error(f"Gemini埋め込み生成でエラーが発生しました: {e}")
         return np.zeros((len(texts), 1))
