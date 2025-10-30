@@ -1,0 +1,9 @@
+streamlit
+pandas
+openpyxl
+elasticsearch==8.13.0
+langchain-elasticsearch
+langchain
+sentence_transformers
+numpy
+tiktoken
