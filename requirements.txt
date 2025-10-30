@@ -7,3 +7,4 @@ langchain
 sentence_transformers
 numpy
 tiktoken
+google-generativeai
