@@ -63,7 +63,7 @@ def search_documents(
         "query": {
             "bool": {
                 "must": [
-                    {"multi_match": {"query": keyword, "fields": ["title", "content"]}}
+                    {"multi_match": {"query": keyword, "fields": ["title", "content_text"]}}
                 ] + must_filters
             }
         }
