@@ -59,14 +59,14 @@ if user_input:
     query = build_search_query(filters)
 
     # --- Elasticsearch検索 ---
-    st.info("🔍 Elasticsearchから関連ドキュメントを検索中...")
+    st.info("🔍 G-Finderから関連ドキュメントを検索中...")
     docs = search_documents(es_client, indices, query, limit=10000)
 
     if not docs:
         st.warning("該当するドキュメントが見つかりませんでした。条件を見直してください。")
     else:
         # --- Gemini Embedding による類似度ランキング ---
-        st.info("✨ Gemini Embeddingによる関連度分析中...")
+        st.info("✨ Geminiによる関連度分析中...")
         ranked_docs = rank_by_embedding(
             question=user_input,
             docs=docs,

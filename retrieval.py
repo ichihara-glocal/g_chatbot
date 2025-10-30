@@ -188,7 +188,7 @@ def rank_by_embedding(
     q_emb = embed_text_gemini([question], api_key, embedding_model)[0]
 
     # --- ドキュメント埋め込み ---
-    doc_texts = [doc.get("content_text", "") for doc in docs]
+    doc_texts = [doc.get("content_text", "")[:1000] for doc in docs]
     d_embs = embed_text_gemini(doc_texts, api_key, embedding_model)
 
     # --- 類似度算出 ---
